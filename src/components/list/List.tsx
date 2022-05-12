@@ -37,6 +37,7 @@ function List() {
         <Col size={1}>Age</Col>
         <Col size={1}>Actions</Col>
       </RowHeader>
+
       {data.costumers.map((item: ICostumer, index: number) => (
         <Row key={index}>
           <Col size={3}>{item.name}</Col>
@@ -59,6 +60,16 @@ function List() {
                   onClick={() => {
                     setIsOpen(true);
                     setAction("del");
+                    setClient(item);
+                    setContent(DeleteCrud());
+                  }}
+                />
+              </IconWrapper>
+              <IconWrapper>
+                <AddIcon
+                  onClick={() => {
+                    setIsOpen(true);
+                    setAction("add");
                     setClient(item);
                     setContent(DeleteCrud());
                   }}

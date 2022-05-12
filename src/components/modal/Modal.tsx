@@ -1,26 +1,84 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CSSTransition } from "react-transition-group";
 import ReactPortal from "./ReactPortal";
 import "./modalStyles.css";
-import { Grid, Row, RowHeader, Col, IconWrapper } from "../styles/List.style";
-import { ReactComponent as AddIcon } from "../../svg/add.svg";
 import { keyboardKey } from "@testing-library/user-event";
 import {
-  REMOVE_COSTUMER,
+  ADD_COSTUMERS,
   UPDATE_COSTUMER,
   READ_COSTUMERS,
+  REMOVE_COSTUMER,
 } from "../../api/costumers";
-import { useMutation } from "@apollo/client";
+import {
+  ApolloClient,
+  InMemoryCache,
+  useMutation,
+  useQuery,
+} from "@apollo/client";
 import { Form, Input, Label } from "../styles/Crud.style";
-import { json } from "stream/consumers";
 
 function Modal({ children, isOpen, handleClose, client, action }) {
+  const clientApollo = new ApolloClient({
+    // uri: "http://localhost:4000/api",
+    uri: "https://104.236.104.169:4000/api",
+    cache: new InMemoryCache(),
+  });
+  const formRef = React.useRef<HTMLFormElement>(null);
   const [costumer, setCostumer] = useState(client);
-  const [delCostumer, { loading: deleting, error: deleteError }] =
-    useMutation(REMOVE_COSTUMER);
+
+  const [delCostumer, { loading: deleting, error: deleteError }] = useMutation(
+    REMOVE_COSTUMER,
+    {
+      update(cache, { data }) {
+        const costum: any = cache.readQuery({
+          query: READ_COSTUMERS,
+        });
+        cache.writeQuery({
+          query: READ_COSTUMERS,
+          data: {
+            costumers: costum.costumers.filter(
+              (costumer: any) => costumer.id !== client.id
+            ),
+          },
+        });
+      },
+    }
+  );
 
   const [updateCostumer, { loading: updating, error: updateError }] =
-    useMutation(UPDATE_COSTUMER);
+    useMutation(UPDATE_COSTUMER, {
+      update(cache, { data }) {
+        const costum: any = cache.readQuery({
+          query: READ_COSTUMERS,
+        });
+
+        cache.writeQuery({
+          query: READ_COSTUMERS,
+          data: {
+            costumers: costum,
+          },
+        });
+      },
+    });
+
+  const [addCostumer, { loading: adding, error: addError }] = useMutation(
+    ADD_COSTUMERS,
+    {
+      update(cache, { data }) {
+        const costum: any = cache.readQuery({
+          query: ADD_COSTUMERS,
+        });
+
+        cache.writeQuery({
+          query: ADD_COSTUMERS,
+          data: {
+            costumers: data.addCostumer,
+            ...costum,
+          },
+        });
+      },
+    }
+  );
 
   const nodeRef = useRef(null);
   useEffect(() => {
@@ -36,11 +94,6 @@ function Modal({ children, isOpen, handleClose, client, action }) {
     };
   }, [handleClose]);
 
-  const updateData = () => {
-    const fechData = client.readQuery({
-      query: READ_COSTUMERS,
-    });
-  };
   return (
     <ReactPortal wrapperId="react-portal-modal-container">
       <CSSTransition
@@ -51,31 +104,22 @@ function Modal({ children, isOpen, handleClose, client, action }) {
         nodeRef={nodeRef}
       >
         <div className="modal" ref={nodeRef}>
-          <button onClick={handleClose} className="close-btn">
-            Close
-          </button>
-
+          <div className="modal-header">
+            <button onClick={handleClose} className="close-btn">
+              X
+            </button>
+          </div>
           <div className="modal-content">
             {action === "del" ? children : ""}
 
-            {action === "upt" && costumer && Object.keys(costumer).length > 0 && (
-              <Form
-                onSubmit={(e: React.SyntheticEvent) => {
-                  e.preventDefault();
-                  const target = e.target as typeof e.target & {
-                    name: { value: string };
-                    email: { value: string };
-                    phone: { value: string };
-                    age: { value: number };
-                  };
-                }}
-              >
+            {action !== "del" && costumer && Object.keys(costumer).length > 0 && (
+              <Form ref={formRef}>
                 <Label>
                   Name:
                   <Input
                     type="text"
                     name="name"
-                    placeholder={client.name}
+                    value={costumer.name}
                     onChange={(e) => {
                       setCostumer({
                         ...costumer,
@@ -94,7 +138,7 @@ function Modal({ children, isOpen, handleClose, client, action }) {
                     <Input
                       type="email"
                       name="email"
-                      placeholder={client.email}
+                      value={costumer.email}
                       onChange={(e) => {
                         setCostumer({
                           ...costumer,
@@ -114,7 +158,7 @@ function Modal({ children, isOpen, handleClose, client, action }) {
                     <Input
                       type="phone"
                       name="phone"
-                      placeholder={client.phone}
+                      value={costumer.phone}
                       onChange={(e) => {
                         setCostumer({
                           ...costumer,
@@ -135,13 +179,13 @@ function Modal({ children, isOpen, handleClose, client, action }) {
                       type="number"
                       min={18}
                       name="age"
-                      placeholder={client.age}
+                      value={costumer.age}
                       onChange={(e) => {
                         setCostumer({
                           ...costumer,
                           ["age"]:
                             e.target.value.length > 0
-                              ? e.target.value
+                              ? Number(e.target.value)
                               : client.age,
                         });
                       }}
@@ -151,39 +195,64 @@ function Modal({ children, isOpen, handleClose, client, action }) {
 
                 <div>
                   {JSON.stringify(client) !== JSON.stringify(costumer) && (
-                    <button
-                      onClick={() =>
-                        updateCostumer({
-                          variables: {
-                            id: costumer.id,
-                            name: costumer.name,
-                            email: costumer.email,
-                            phone: costumer.phone,
-                            age: costumer.age,
-                          },
-                        })
-                      }
-                    >
-                    
-                      Update
-                    </button>
+                    <div className="modal-footer">
+                      {action === "upt" && (
+                        <button
+                          className="act-btn"
+                          onClick={() => {
+                            updateCostumer({
+                              variables: {
+                                id: costumer.id,
+                                name: costumer.name,
+                                email: costumer.email,
+                                phone: costumer.phone,
+                                age: costumer.age,
+                              },
+                            });
+                          }}
+                        >
+                          Update
+                        </button>
+                      )}
+
+                      {action === "add" && (
+                        <button
+                          className="act-btn"
+                          onClick={() => {
+                            addCostumer({
+                              variables: {
+                                name: costumer.name,
+                                email: costumer.email,
+                                phone: costumer.phone,
+                                age: costumer.age,
+                              },
+                            });
+                          }}
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </Form>
             )}
 
             {action === "del" && (
-              <div>
+              <div className="modal-footer">
                 <button
-                  onClick={() =>
+                  className="act-btn"
+                  onClick={() => {
                     delCostumer({
                       variables: { id: client.id },
-                    })
-                  }
+                    });
+                  }}
                 >
                   Ok
                 </button>
-                <button onClick={handleClose}>Cancel</button>
+                <button className="act-btn" onClick={handleClose}>
+                  Cancel
+                </button>
               </div>
             )}
           </div>

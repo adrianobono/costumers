@@ -17,6 +17,8 @@ export const RowHeader = styled.div`
   margin-bottom: 15px;
   color: #ddd;
   background-color: #343a40;
+  position: sticky;
+  top: 0;
 `;
 
 export const Col = styled.div`
