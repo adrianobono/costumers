@@ -20,7 +20,7 @@ import { Form, Input, Label } from "../styles/Crud.style";
 function Modal({ children, isOpen, handleClose, client, action }) {
   const clientApollo = new ApolloClient({
     // uri: "http://localhost:4000/api",
-    uri: "https://104.236.104.169:4000/api",
+    uri: "http://104.236.104.169:4000/api",
     cache: new InMemoryCache(),
   });
   const formRef = React.useRef<HTMLFormElement>(null);
